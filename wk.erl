@@ -22,13 +22,14 @@ init({ToSend,Ref,Limit})->
 handle_call({process,Message},From,State)->
     {reply,{processed,os:timestamp()},State};
 handle_call(Message,From,State)->
-     self() ! {from_call,Message},
+    self() ! {from_call,Message},
     {noreply,State}.
 handle_cast(Message,State=#state{count=C})->
     self() ! {from_cast,Message},
     {noreply,State}.
 
 handle_info(Message,State=#state{count=C,limit=L,toSend=T})->
+    io:format("sugi"),
     T! {badrequest,Message},
     Ret=if C>L -> {stop,State};
            true ->{noreply,State#state{count=C+1}}
