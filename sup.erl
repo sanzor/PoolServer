@@ -1,28 +1,21 @@
--module(gate).
+-module(sup).
 -behaviour(supervisor).
--export([init/1]).
+-export([init/1,run/1]).
 
 
 
-run()->
-    supervisor:start_link({local,?MODULE},?MODULE,[]).
-
-
-process()->
-    
-
-
-stop()->
-
-init()->
-    RestartStrategy={simple_one_for_one,1,1000},
-    ChildSpec={
-        wk,
-        {wk,start_link,[]},
-        transient,
-        brutal_kill,
-    }
-    {ok,{RestartStrategy,[ChildSpec]}}.
-
+run({Name,Strategy})->
+    supervisor:start_link({local,Name},?MODULE,[Strategy]).
+ 
+init(Strategy)->
+   ChildSpec=#{
+       id=>wk,
+       start=>{wk,start_link,[]},
+       restart=>transient,
+       timeout=>brutal_kill,
+       type=>worker,
+       modules=>[wk]
+   },
+   {ok,{Strategy,[ChildSpec]}}.
 
 

@@ -13,7 +13,8 @@ start_link(ToSend,Ref,Limit)->
    gen_server:start_link(?MODULE, {ToSend,Ref,Limit}, []).
     
 
-
+start(ToSend,Ref,Limit)->
+    gen_server:start(?MODULE,{ToSend,Ref,Limit},[]).
 init({ToSend,Ref,Limit})->
     State=#state{ref=Ref,toSend=ToSend,limit=Limit},
     {ok,State}.
@@ -32,7 +33,7 @@ handle_info(Message,State=#state{count=C,limit=L,toSend=T})->
     io:format("sugi"),
     T! {badrequest,Message},
     Ret=if C>L -> {stop,State};
-           true ->{noreply,State#state{count=C+1}}
+            true->{noreply,State#state{count=C+1}}
         end,
     Ret.
     
