@@ -5,7 +5,7 @@
 
 
 run({Name,Strategy})->
-    supervisor:start_link({local,Name},?MODULE,[Strategy]).
+    supervisor:start_link({local,Name},?MODULE,Strategy).
  
 init(Strategy)->
    ChildSpec=#{

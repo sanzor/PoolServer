@@ -5,6 +5,9 @@
     sup
 }).
 
+process(Message,Server)->
+    gen_server:call(Server,Message).
+
 
 start(Sup)->
     gen_server:start({local,?MODULE},?MODULE,[Sup]).
@@ -14,7 +17,8 @@ start_link(Sup)->
 init(Sup)->
     {ok,#state{sup=Sup}}.
 
-
+handle_call(From,Message)->
+    
 %api
 
 
