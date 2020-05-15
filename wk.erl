@@ -4,38 +4,24 @@
 
 
 -record(state,{
-    ref,
-    limit,
-    count=0,
-    toSend
+   limit,
+   processed=[]
 }).
-start_link(ToSend,Ref,Limit)->
-   gen_server:start_link(?MODULE, {ToSend,Ref,Limit}, []).
+start_link(Limit)->
+   gen_server:start_link(?MODULE, Limit, []).
     
-
-start(ToSend,Ref,Limit)->
-    gen_server:start(?MODULE,{ToSend,Ref,Limit},[]).
-init({ToSend,Ref,Limit})->
-    State=#state{ref=Ref,toSend=ToSend,limit=Limit},
+start(Limit)->
+    gen_server:start(?MODULE,Limit,[]).
+init(Limit)->
+    State=#state{limit=Limit},
     {ok,State}.
 
 
-handle_call({process,Message},From,State)->
-    {reply,{processed,os:timestamp()},State};
-handle_call(Message,From,State)->
-    self() ! {from_call,Message},
-    {noreply,State}.
-handle_cast(Message,State=#state{count=C})->
-    self() ! {from_cast,Message},
-    {noreply,State}.
+handle_call(From,Message,State=#state{processed=P,limit=L})->
+    Reply={{processed,self(),os:timestamp()},Message},
+    {reply,Reply,State#state{limit=L+1,processed=[Message,P]}}.
 
-handle_info(Message,State=#state{count=C,limit=L,toSend=T})->
-    io:format("sugi"),
-    T! {badrequest,Message},
-    Ret=if C>L -> {stop,State};
-            true->{noreply,State#state{count=C+1}}
-        end,
-    Ret.
+
     
 
 
