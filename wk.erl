@@ -19,13 +19,13 @@ init(Limit)->
     {ok,State}.
 
 
-handle_call(From,state,State)->
+handle_call(state,From,State)->
     {reply,State,State};
-handle_call(From,Message,State=#state{processed=P,limit=L,counter=C})->
+handle_call(Message,From,State=#state{processed=P,limit=L,counter=C})->
      Reply=if C=:=L;C>L -> exit(consumed);
               C<L       -> {{processed,self(),os:timestamp()},Message}
      end,
-    {reply,Reply,State#state{counter=C+1,processed=[Message,P]}}.
+    {reply,Reply,State#state{counter=C+1,processed=[Message|P]}}.
 
 handle_info(Message,State=#state{unknown=U})->
     {noreply,State#state{unknown=[Message|U]}}.
