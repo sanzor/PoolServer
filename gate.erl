@@ -18,8 +18,8 @@ start_link(Sup)->
 init(Sup)->
     {ok,#state{sup=Sup,refs=gb_sets:new()}}.
 
-handle_call(From,Message)->
-    
+handle_call(From,Message,State=#state{sup=Sup,refs=Refs})->
+     {ok,X}=supervisor:start_child(Sup,[3]),
 %api
 
 

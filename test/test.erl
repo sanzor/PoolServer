@@ -2,7 +2,7 @@
 -record(state,{
     wk
 }).
--export([worker/0,run/0,loop/1,call/2]).
+-export([worker/0,run/0,loop/1,call/2,doer/0]).
 
 -define(EXISTS(State),State#state.wk=/=undefined).
 -define(PRINT(X),fun(X)->io:format("",[]) end).
@@ -38,4 +38,14 @@ call(Message,Mid)->
     Mid ! {self(),Message},
     receive 
         {processed,From,NewMessage}->{resolved,From,NewMessage}
+    end.
+
+
+doer()->
+    receive 
+        {From,Message}->timer:sleep(1000000),
+                        From ! done,
+                        doer();
+         {From,_} -> From ! non_wait,
+                     doer()
     end.
