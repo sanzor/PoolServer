@@ -22,7 +22,7 @@ init(Limit)->
 handle_call(state,From,State)->
     {reply,State,State};
 handle_call(Message,From,State=#state{processed=P,limit=L,counter=C})->
-     Reply=if C=:=L;C>L -> exit(consumed);
+     Reply=if C=:=L;C>L -> exit({limit_reached,{toProcess,Message}});
               C<L       -> {{processed,self(),os:timestamp()},Message}
      end,
     {reply,Reply,State#state{counter=C+1,processed=[Message|P]}}.
