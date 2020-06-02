@@ -4,28 +4,33 @@
 
 
 -record(state,{
-   limit,
-   processed=[],
-   unknown=[],
-   counter=0
+   queue,
+   queueCount,
+   processedCount
 }).
-start_link(Limit)->
-   gen_server:start_link(?MODULE, Limit, []).
+
+-define(MAX_PROCESSED,1000).
+-define(QUEUE_SIZE,10).
+
+start_link()->
+   gen_server:start_link(?MODULE, [], []).
     
-start(Limit)->
-    gen_server:start(?MODULE,Limit,[]).
-init(Limit)->
-    State=#state{limit=Limit},
-    {ok,State}.
+start()->
+    gen_server:start(?MODULE,[],[]).
+init([])->
+    {ok,#state{queue=queue:new(),queueCount=0,processedCount=0}}.
 
 
 handle_call(state,From,State)->
     {reply,State,State};
-handle_call(Message,From,State=#state{processed=P,limit=L,counter=C})->
+handle_call(Message,From,State=#state{counter=C,depreciation=D,queueSize=S})when -> 
+     {}
+handle_call(Message,From,State=#state{processed=P,counter=C,depreciation=D})->
      Reply=if C=:=L;C>L -> exit({limit_reached,{toProcess,Message}});
               C<L       -> {{processed,self(),os:timestamp()},Message}
      end,
     {reply,Reply,State#state{counter=C+1,processed=[Message|P]}}.
+
 
 handle_info(Message,State=#state{unknown=U})->
     {noreply,State#state{unknown=[Message|U]}}.
