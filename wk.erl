@@ -23,8 +23,9 @@ init([])->
 
 handle_call(state,From,State)->
     {reply,State,State};
-handle_call(Message,From,State=#state{counter=C,depreciation=D,queueSize=S})when -> 
-     {}
+handle_call(Message,From,State=#state{queueCount=C})when C>=QUEUE_SIZE ->
+    Reply={processing_limit_reached}
+    {reply,Reply,State}
 handle_call(Message,From,State=#state{processed=P,counter=C,depreciation=D})->
      Reply=if C=:=L;C>L -> exit({limit_reached,{toProcess,Message}});
               C<L       -> {{processed,self(),os:timestamp()},Message}
