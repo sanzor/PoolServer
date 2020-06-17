@@ -1,58 +1,60 @@
 -module(mq).
 -compile(export_all).
--record(enqstate,{
-    queue,
-    queueCount
+
+-record(monstate,{
+    wpid,
+    free=true,
+    wref
 }).
 -record(sstate,{
-    eref,
-    pref
-}).
+    mpid,
+    queue,
+    queueCount
+})
 -define(QUEUE_SIZE,5).
 -define(PROC_SLEEP,1000).
 -compile(export_all).
 
 start()->
-    spawn(?MODULE,server,[]).
-server()->
-    EnqueuerPid=spawn(?MODULE,enqueuer,[#enqstate{queue=queue:new(),queueCount=0}]),
-    ProcessorPid=spawn(?MODULE,processor,[]),
-    ERef=erlang:monitor(EnqueuerPid),
-    PRef=erlang:monitor(ProcessorPid),
-    loop(#sstate{eref=ERef,pref=PRef}).
+    
+    MRef=erlang:monitor(spawn(?MODULE,monitor,))
+    spawn(?MODULE,server,#{queue=queue:new(),queueCount=0,}).
 
-loop(S=#sstate{eref=E,pref=P}) ->
+
+
+server(State=#sstate{mpid=MPid})->
     receive
-        {'DOWN',E,process,Pid,Reason}->exit(enq_down);
-        {'DOWN',P,process,Pid,Reason}->exit(proc_down);
-        {From,Msg} -> EnqueuerPid ! {From,Msg};
-         _ -> exit(invalid_message) 
+        {From,Message}->
+            {WPid,Free}=MPid !{server,self(),wstate},
+            if Free=:=true -> WPid ! {server,{From,Message}};
+               true -> {From , busy}
+            end
+    end,
+    server(State).
+  
+    
+
+
+monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
+    receive
+        {server,SPid,wstate}->SPid!{W,F};
+        {server,{From,Msg}} ->
+            if F=:= false -> From ! {worker_busy,"Try again later"},
+                             monitor(MState);
+               F=:= true ->  W ! {From,Msg},
+                             monitor(MState#monstate{free=false})
+            end;
+        {worker,finished,_}->monitor(MState#monstate{free=true});
+
+        {'DOWN',process,_,Ref,_}->
+            NewRef=erlang:monitor(NewPid=spawn(?MODULE,processor,self())),
+            monitor(MState#monstate{wpid=NewPid,wref=NewRef,free=true});
     end.
 
-
-enqueuer(State=#enqstate{queueCount=C,queue=Q})->
+processor(MPid)->
     receive 
-        {From,MSG}-> if C<?QUEUE_SIZE -> NewQueue=queue:in({From,MSG},Q),
-                                         enqueuer(State#enqstate{queueCount=C+1,queue=NewQueue});
-                         true         -> From ! {queue_full_try_later},
-                                         enqueuer(State)
-                     end;
-        {ProcessorPid,msg_processed}-> 
-                                 case queue:out(Q) of
-                                     {{value,Element},RemQueue} ->
-                                              ProcessorPid ! {self(),Element},
-                                              enqueuer(State#enqstate{queueCount=C-1,queue=RemQueue});
-                                      {empty,_} -> enqueuer(State)
-                                 end
-    end.
-        
-processor()->
-    receive 
-        {EnqPid,{From,Message}}->
-                timer:sleep(?PROC_SLEEP),
-                From ! {Message,processed},
-                EnqPid ! {self(),msg_processed},
-                processor(ProcState);
-
-         _ -> exit(wrong_message)
+        {From,MSG} ->
+            timer:sleep(?PROC_SLEEP),
+            From ! {processed,MSG},
+            MPid ! {worker,finished,MSG}
     end.
