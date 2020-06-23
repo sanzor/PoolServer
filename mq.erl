@@ -7,33 +7,39 @@
     wref
 }).
 -record(sstate,{
-    mpid,
+    mpid=null,
+    mref=null,
     queue,
     queueCount
-})
+}).
 -define(QUEUE_SIZE,5).
 -define(PROC_SLEEP,1000).
--compile(export_all).
 
 start()->
-    
-    MRef=erlang:monitor(spawn(?MODULE,monitor,))
-    spawn(?MODULE,server,#{queue=queue:new(),queueCount=0,}).
+    spawn(?MODULE,server,#{queue=queue:new()}).
 
 
 
-server(State=#sstate{mpid=MPid})->
+server(State=#sstate{})->
     receive
         {From,Message}->
-            {WPid,Free}=MPid !{server,self(),wstate},
+            case State#state.mpid of
+                null ->
+                    {MP,MR}=createMon(),
+                    {WPid,Free}=MP !{server,self(),wstate},
+                _ ->
+
+            
             if Free=:=true -> WPid ! {server,{From,Message}};
                true -> {From , busy}
             end
-    end,
-    server(State).
+    end.
   
     
-
+createMon()->
+   MPid=spawn(?MODULE,monitor,#monstate{wpid=null}),
+   MRef=erlang:monitor(process,MPid),
+   {MPid,MRef}.
 
 monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
     receive
@@ -48,7 +54,7 @@ monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
 
         {'DOWN',process,_,Ref,_}->
             NewRef=erlang:monitor(NewPid=spawn(?MODULE,processor,self())),
-            monitor(MState#monstate{wpid=NewPid,wref=NewRef,free=true});
+            monitor(MState#monstate{wpid=NewPid,wref=NewRef,free=true})
     end.
 
 processor(MPid)->
