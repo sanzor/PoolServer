@@ -30,12 +30,15 @@ server(State=#sstate{init=I})when I=:=false ->
 
 server(State=#sstate{mpid=MPid,mref=MRef})->
     receive
+           {From,state}->From ! State;
            {From,Message}-> 
                 MPid ! {server,self(),wstate},
                 receive 
-                    {_,Free} -> if  Free=:=true -> MPid ! {server,{From,Message}};
-                                    true -> {From , busy}
-                                end;
+                    {_,Free} -> 
+                        if  Free=:=true -> 
+                            MPid ! {server,{From,Message}};
+                            Free =:=false -> From ! busy
+                        end;
                     _ -> exit(invalid_monitor_message)
                 end,
                 server(State);
@@ -55,6 +58,7 @@ monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
     receive
         {server,SPid,wstate}->SPid!{W,F};
         {server,{From,Msg}} ->
+            From ! {sugi_pl,5},
             if F=:= false -> From ! {worker_busy,"Try again later"},
                              monitor(MState);
                F=:= true ->  W ! {From,Msg},
