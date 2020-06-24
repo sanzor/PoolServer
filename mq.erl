@@ -4,42 +4,52 @@
 -record(monstate,{
     wpid,
     free=true,
-    wref
+    wref,
+    init=false
 }).
 -record(sstate,{
+    init=false,
     mpid=null,
-    mref=null,
-    queue,
-    queueCount
+    mref=null
 }).
+
 -define(QUEUE_SIZE,5).
 -define(PROC_SLEEP,1000).
 
+createProcess({M,F,A})->
+    Pid=spawn(M,F,[A]),
+    Ref=erlang:monitor(process,Pid),
+    {Pid,Ref}.
+
 start()->
-    spawn(?MODULE,server,#{queue=queue:new()}).
+    spawn(?MODULE,server,[#sstate{init=false}]).
 
+server(State=#sstate{init=I})when I=:=false ->
+    {MPid,MRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
+    server(State#sstate{init=true,mpid=MPid,mref=MRef});
 
-
-server(State=#sstate{})->
+server(State=#sstate{mpid=MPid,mref=MRef})->
     receive
-        {From,Message}->
-            case State#state.mpid of
-                null ->
-                    {MP,MR}=createMon(),
-                    {WPid,Free}=MP !{server,self(),wstate},
-                _ ->
+           {From,Message}-> 
+                MPid ! {server,self(),wstate},
+                receive 
+                    {_,Free} -> if  Free=:=true -> MPid ! {server,{From,Message}};
+                                    true -> {From , busy}
+                                end;
+                    _ -> exit(invalid_monitor_message)
+                end,
+                server(State);
 
-            
-            if Free=:=true -> WPid ! {server,{From,Message}};
-               true -> {From , busy}
-            end
+            {'DOWN',MRef,process,MPid,_}-> {NewMPid,NewMRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
+                                            server(State#sstate{mpid=NewMPid,mref=NewMRef})
+                                    
     end.
   
-    
-createMon()->
-   MPid=spawn(?MODULE,monitor,#monstate{wpid=null}),
-   MRef=erlang:monitor(process,MPid),
-   {MPid,MRef}.
+
+
+monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
+    {WorkerPid,WorkerRef}=createProcess({?MODULE,worker,self()}),
+    monitor(MState#monstate{wpid=WorkerPid,wref=WorkerRef,init=true});
 
 monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
     receive
@@ -52,15 +62,17 @@ monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
             end;
         {worker,finished,_}->monitor(MState#monstate{free=true});
 
-        {'DOWN',process,_,Ref,_}->
-            NewRef=erlang:monitor(NewPid=spawn(?MODULE,processor,self())),
-            monitor(MState#monstate{wpid=NewPid,wref=NewRef,free=true})
+        {'DOWN',Ref,process,_,_}->
+             {NewWorkerPid,NewWorkerRef}=createProcess({?MODULE,worker,self()}),
+             monitor(MState#monstate{wpid=NewWorkerPid,wref=NewWorkerRef,free=true})
     end.
 
-processor(MPid)->
+worker(MPid)->
     receive 
         {From,MSG} ->
             timer:sleep(?PROC_SLEEP),
             From ! {processed,MSG},
-            MPid ! {worker,finished,MSG}
+            MPid ! {worker,finished,MSG},
+            worker(MPid);
+        _ ->exit(bad_msg)
     end.
