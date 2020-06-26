@@ -14,7 +14,8 @@
 }).
 
 -define(QUEUE_SIZE,5).
--define(PROC_SLEEP,1000).
+-define(PROC_SLEEP,10000).
+
 
 createProcess({M,F,A})->
     Pid=spawn(M,F,[A]),
@@ -32,22 +33,23 @@ server(State=#sstate{mpid=MPid,mref=MRef})->
     receive
            {From,state}->From ! State;
            {From,Message}-> 
-                MPid ! {server,self(),wstate},
-                receive 
-                    {_,Free} -> 
-                        if  Free=:=true -> 
-                            MPid ! {server,{From,Message}};
-                            Free =:=false -> From ! busy
-                        end;
-                    _ -> exit(invalid_monitor_message)
-                end,
-                server(State);
-
+                case getWorkerState(MPid) of
+                    {WPid,true}-> WPid ! {From,Message};
+                    {_   ,false}->From ! {worker_busy,"try again later"}
+                end;
             {'DOWN',MRef,process,MPid,_}-> {NewMPid,NewMRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
-                                            server(State#sstate{mpid=NewMPid,mref=NewMRef})
+                                            server(State#sstate{mpid=NewMPid,mref=NewMRef});
+            _ ->exit(invalid_message)
                                     
     end.
   
+
+getWorkerState(MPid)-> 
+    MPid ! {{server,self()},workerstate},
+    State=receive
+            {WPid,Free}->{WPid,Free}
+          end,
+    State.
 
 
 monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
@@ -56,27 +58,29 @@ monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
 
 monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
     receive
-        {server,SPid,wstate}->SPid!{W,F};
-        {server,{From,Msg}} ->
-            From ! {sugi_pl,5},
-            if F=:= false -> From ! {worker_busy,"Try again later"},
-                             monitor(MState);
-               F=:= true ->  W ! {From,Msg},
-                             monitor(MState#monstate{free=false})
-            end;
-        {worker,finished,_}->monitor(MState#monstate{free=true});
+
+        {{server,SPid},workerstate}->SPid!{W,F};
+
+        {worker,{starting,_}}->monitor(MState#monstate{free=false});
+
+        {worker,{finished,_}}->monitor(MState#monstate{free=true});
 
         {'DOWN',Ref,process,_,_}->
              {NewWorkerPid,NewWorkerRef}=createProcess({?MODULE,worker,self()}),
-             monitor(MState#monstate{wpid=NewWorkerPid,wref=NewWorkerRef,free=true})
+             monitor(MState#monstate{wpid=NewWorkerPid,wref=NewWorkerRef,free=true});
+
+        _->exit(invalid_message)
+
     end.
 
 worker(MPid)->
     receive 
         {From,MSG} ->
+            MPid! {worker,{starting,MSG}},
             timer:sleep(?PROC_SLEEP),
             From ! {processed,MSG},
-            MPid ! {worker,finished,MSG},
+            MPid ! {worker,{finished,MSG}},
             worker(MPid);
         _ ->exit(bad_msg)
     end.
+
