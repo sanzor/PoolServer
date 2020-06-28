@@ -32,11 +32,8 @@ server(State=#sstate{init=I})when I=:=false ->
 server(State=#sstate{mpid=MPid,mref=MRef})->
     receive
            {From,state}->From ! State;
-           {From,Message}-> 
-                case getWorkerState(MPid) of
-                    {WPid,true}-> WPid ! {From,Message};
-                    {_   ,false}->From ! {worker_busy,"try again later"}
-                end;
+           {From,Message}-> MPid ! {request,{From,Message}};
+                
             {'DOWN',MRef,process,MPid,_}-> {NewMPid,NewMRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
                                             server(State#sstate{mpid=NewMPid,mref=NewMRef});
             _ ->exit(invalid_message)
@@ -59,7 +56,14 @@ monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
 monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
     receive
 
-        {{server,SPid},workerstate}->SPid!{W,F};
+        {From,isFree}->From !{workerstate,F};
+        {request,{From ,Message}} -> case getWorkerState(self()) of
+                                        {_,true}-> W ! {From,Message},
+                                                   monitor(MState#monstate{free=false});
+                                        {_,false}-> From ! {worker_busy,"try later"},
+                                                   monitor(MState)
+                                     end;
+
 
         {worker,{starting,_}}->monitor(MState#monstate{free=false});
 
