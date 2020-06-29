@@ -2,10 +2,13 @@
 -compile(export_all).
 
 -record(monstate,{
+    queue,
+    qc,
     wpid,
     free=true,
     wref,
-    init=false
+    init=false,
+    frun=false
 }).
 -record(sstate,{
     init=false,
@@ -14,7 +17,7 @@
 }).
 
 -define(QUEUE_SIZE,5).
--define(PROC_SLEEP,10000).
+-define(PROC_SLEEP,2000).
 
 
 createProcess({M,F,A})->
@@ -31,8 +34,10 @@ server(State=#sstate{init=I})when I=:=false ->
 
 server(State=#sstate{mpid=MPid,mref=MRef})->
     receive
-           {From,state}->From ! State;
-           {From,Message}-> MPid ! {request,{From,Message}};
+           {From,state}->From ! State,
+                            server(State);
+           {From,Message}-> MPid ! {request,{From,Message}},
+                            server(State);
                 
             {'DOWN',MRef,process,MPid,_}-> {NewMPid,NewMRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
                                             server(State#sstate{mpid=NewMPid,mref=NewMRef});
@@ -41,33 +46,35 @@ server(State=#sstate{mpid=MPid,mref=MRef})->
     end.
   
 
-getWorkerState(MPid)-> 
-    MPid ! {{server,self()},workerstate},
-    State=receive
-            {WPid,Free}->{WPid,Free}
-          end,
-    State.
-
+tryEnqueue(Message,MState=#monstate{queue=Q,qc=C}) when C<?QUEUE_SIZE->
+    NewQueue=queue:in(Message,Q),
+    {queued,MState#monstate{qc=C+1,queue=NewQueue}};
+tryEnqueue(_,MState)->{queue_full,MState}.
 
 monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
     {WorkerPid,WorkerRef}=createProcess({?MODULE,worker,self()}),
-    monitor(MState#monstate{wpid=WorkerPid,wref=WorkerRef,init=true});
+    monitor(MState#monstate{wpid=WorkerPid,wref=WorkerRef,init=true,qc=0,queue=queue:new(),frun=true});
 
-monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
+monitor(MState=#monstate{wpid=W,free=F,wref=Ref,queue=Q,qc=C,frun=R})->
     receive
+        {From,isFree}->From !{workerstate,F},monitor(MState);
+        {request,{From ,Message}} ->   {Result,NewState}=tryEnqueue({From,Message},MState),
+                                        case Result of 
+                                            queue_full -> From ! {queue_full,Message};
+                                            _ -> ok
+                                        end,
+                                        case R of
+                                            true -> self() ! {worker,{finished,R}},
+                                                    monitor(NewState#monstate{frun=false});
+                                            false -> monitor(NewState#monstate{frun=false})
+                                        end;
+                                       
 
-        {From,isFree}->From !{workerstate,F};
-        {request,{From ,Message}} -> case getWorkerState(self()) of
-                                        {_,true}-> W ! {From,Message},
-                                                   monitor(MState#monstate{free=false});
-                                        {_,false}-> From ! {worker_busy,"try later"},
-                                                   monitor(MState)
-                                     end;
-
-
-        {worker,{starting,_}}->monitor(MState#monstate{free=false});
-
-        {worker,{finished,_}}->monitor(MState#monstate{free=true});
+        {worker,{finished,_}}-> case queue:out(Q) of
+                                    {{_,Element},Rest} -> W ! Element,
+                                                    monitor(MState#monstate{free=false,queue=Rest,qc=C-1});
+                                    {empty,Rest} -> monitor(MState#monstate{free=true,queue=Rest})
+                                end;
 
         {'DOWN',Ref,process,_,_}->
              {NewWorkerPid,NewWorkerRef}=createProcess({?MODULE,worker,self()}),
@@ -80,7 +87,6 @@ monitor(MState=#monstate{wpid=W,free=F,wref=Ref})->
 worker(MPid)->
     receive 
         {From,MSG} ->
-            MPid! {worker,{starting,MSG}},
             timer:sleep(?PROC_SLEEP),
             From ! {processed,MSG},
             MPid ! {worker,{finished,MSG}},
