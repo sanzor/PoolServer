@@ -58,7 +58,8 @@ monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
 monitor(MState=#monstate{wpid=W,free=F,wref=Ref,queue=Q,qc=C,frun=R})->
     receive
         {From,isFree}->From !{workerstate,F},monitor(MState);
-        {request,{From ,Message}} ->   {Result,NewState}=tryEnqueue({From,Message},MState),
+        {request,{From ,Message}} ->  
+                                       {Result,NewState}=tryEnqueue({From,Message},MState),
                                         case Result of 
                                             queue_full -> From ! {queue_full,Message};
                                             _ -> ok
