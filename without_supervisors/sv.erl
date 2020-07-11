@@ -1,7 +1,8 @@
+%%% top hierarchy module serving as a dispatcher between callers and monitors
 -module(sv).
 -import(common,[createProcess/1]).
 -include("records.hrl").
--export([start/0]).
+-export([start/0,server/1]).
 
 
 

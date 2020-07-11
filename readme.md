@@ -1,5 +1,6 @@
 # Supervised Pool Server
 Pool Server using Erlang's `supervisor` and `gen_server` behaviours
+In the (without_supervisor folder) Pool Server without Erlang behaviours
 ## Architecture
 
 ### **App Supervisor**

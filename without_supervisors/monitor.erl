@@ -1,10 +1,10 @@
+%%% servers as both a gen_server that can be queried  and a supervisor for its worker process
 -module(monitor).
 -export([monitor/1]).
 -import(common,[createProcess/1]).
 -include("records.hrl").
 
 -define(QUEUE_SIZE,5).
-
 
 tryEnqueue(Message,MState=#monstate{queue=Q,qc=C}) when C<?QUEUE_SIZE->
     NewQueue=queue:in(Message,Q),
