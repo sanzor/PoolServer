@@ -10,7 +10,7 @@ start()->
     spawn(?MODULE,server,[#sstate{init=false}]).
 
 server(State=#sstate{init=I})when I=:=false ->
-    {MPid,MRef}=createProcess({?MODULE,monitor,#monstate{init=false}}),
+    {MPid,MRef}=createProcess({monitor,monitor,#monstate{init=false}}),
     server(State#sstate{init=true,mpid=MPid,mref=MRef});
 
 server(State=#sstate{mpid=MPid,mref=MRef})->

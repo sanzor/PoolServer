@@ -2,6 +2,7 @@
 -module(monitor).
 -export([monitor/1]).
 -import(common,[createProcess/1]).
+
 -include("records.hrl").
 
 -define(QUEUE_SIZE,5).
@@ -12,7 +13,7 @@ tryEnqueue(Message,MState=#monstate{queue=Q,qc=C}) when C<?QUEUE_SIZE->
 tryEnqueue(_,MState)->{queue_full,MState}.
 
 monitor(MState=#monstate{wpid=_,wref=_,init=I}) when I=:= false ->
-    {WorkerPid,WorkerRef}=createProcess({?MODULE,worker,self()}),
+    {WorkerPid,WorkerRef}=createProcess({worker,worker,self()}),
     monitor(MState#monstate{wpid=WorkerPid,wref=WorkerRef,init=true,qc=0,queue=queue:new()});
 
 monitor(MState=#monstate{wpid=W,free=Free,wref=Ref,queue=Q,qc=C})->
