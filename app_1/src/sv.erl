@@ -5,7 +5,6 @@
 -export([start/0,server/1]).
 
 
-
 start()->
     spawn(?MODULE,server,[#sstate{init=false}]).
 
