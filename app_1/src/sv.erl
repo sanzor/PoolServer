@@ -2,11 +2,14 @@
 -module(sv).
 -import(common,[createProcess/1]).
 -include("records.hrl").
--export([start/0,server/1]).
+-export([server/1]).
+-behaviour(application).
 
+start(normal,_Args)->
+    sv:start_link().
 
-start()->
-    spawn(?MODULE,server,[#sstate{init=false}]).
+start_link()->
+    spawn_link(?MODULE,server,[#sstate{init=false}]).
 
 server(State=#sstate{init=I})when I=:=false ->
     {MPid,MRef}=createProcess({monitor,monitor,#monstate{init=false}}),
