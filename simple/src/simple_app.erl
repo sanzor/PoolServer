@@ -10,7 +10,7 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    simple_sup:start_link().
+    proc:loop().
 
 stop(_State) ->
     ok.
