@@ -1,0 +1,12 @@
+{
+    application,
+    app3,
+    [
+        {description,"Simple app"},
+        {vsn,"1.0.0"},
+        {applications,[kernel,stdlib]},
+        {registered,[]},
+        {mod,[app3_app]},
+        {modules,[proc,app3_sup]}
+    ]
+}.
