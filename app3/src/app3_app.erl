@@ -10,7 +10,9 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    app3sup:start_link().
+    {ok,Root}=app3sup:start_link(),
+    register(_StartArgs,Root),
+    ok.
     
 
 stop(_State) ->

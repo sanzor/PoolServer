@@ -6,7 +6,7 @@
         {vsn,"1.0.0"},
         {applications,[kernel,stdlib]},
         {registered,[]},
-        {mod,[app3_app]},
+        {mod,[]},
         {modules,[proc,app3_sup]}
     ]
 }.
