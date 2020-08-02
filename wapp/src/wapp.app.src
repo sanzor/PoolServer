@@ -1,12 +1,12 @@
 {
     application,
-    app3,
+    wapp,
     [
         {description,"Simple app"},
         {vsn,"1.0.0"},
         {applications,[kernel,stdlib]},
         {registered,[]},
         {mod,[]},
-        {modules,[proc,app3_sup]}
+        {modules,[rootsup,server,wsup,worker]}
     ]
 }.

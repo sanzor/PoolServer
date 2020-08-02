@@ -1,4 +1,4 @@
--module(proc).
+-module(worker).
 -export([start/0,loop/0]).
 
 start()->

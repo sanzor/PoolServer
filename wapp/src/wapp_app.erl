@@ -1,16 +1,17 @@
 %%%-------------------------------------------------------------------
-%% @doc simple public API
+%% @doc app3 public API
 %% @end
 %%%-------------------------------------------------------------------
 
--module(simple_app).
+-module(wapp).
 
 -behaviour(application).
 
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    proc:loop().
+   rootsup:start_link().
+    
 
 stop(_State) ->
     ok.

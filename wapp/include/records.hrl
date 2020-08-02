@@ -1,0 +1,3 @@
+-record(state,#{
+    name
+    }).
