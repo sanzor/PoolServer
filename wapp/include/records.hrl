@@ -1,3 +1,11 @@
 -record(state,#{
-    name
+    wmap,
+    queue,
+    qc
+    }).
+
+-record(worker,#{
+    free,
+    Ref,
+    Pid
     }).
