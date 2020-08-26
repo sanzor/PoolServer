@@ -2,12 +2,11 @@
 -behaviour(supervisor).
 -export([start_link/1,init/1]).
 
+-define(SUP,?MODULE).
 
-
-start_link(Name)when is_list(Name)->
-    SupName=list_to_atom(Name++".sup"),
-    {ok,Pid}=supervisor:start_link({local,SupName},?MODULE,[Name]),
-    register(SupName,Pid),
+start_link()->
+    
+    {ok,Pid}=supervisor:start_link({local,?SUP},?MODULE,[]),
     {ok,Pid}.
 
 

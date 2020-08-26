@@ -7,5 +7,12 @@ start()->
 loop()->
     receive 
         {From,Msg} -> From ! {processed,Msg},
+                      notifyCompletionToServer(),
                       loop()
+    end.
+
+notifyCompletionToServer()->
+    case whereis(server) of
+        undefined -> exit(server_down);
+        Pid -> Pid ! {worker_done,self()}
     end.
